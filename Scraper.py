@@ -216,16 +216,22 @@ def get_event_name_from_biog_row(row):
     '''
     return row.findChild().text
 
-def get_best_events_by_fina_points_for_set_year(ID="921675", course="L", year_to_search="16", total_events_to_scrape=3):
+def get_best_events_by_fina_points_for_set_year(ID="921675", course="L", year_to_search="16", total_events_to_scrape=3, exclude_medley: bool = False):
     '''
     Scrapes a biog page for the n best events by fina point scores for a given year, taking into account short course or long course or both courses
     - sequentially fetch each event history table based on course
     - map getting seasonal best fina points onto each event history table and store each event (key) with its fina point score (value) in some sort of dictionary or map
     - fetch the top n events based on this metric and return as list
+
+    Exclude medley allows the user to exclude IM events when performing the search; this is so that a user could find a medley swimmer's best stroke or best distance
+    and compile stats for medley performers.
     '''
     event_tables = [[],[]]  #the first list corresponds to event codes - zip the event codes with their corresponding fina points later
     if course == "L" or course == "S":
-        upper_lim = 18 if course == "L" else 19
+        if exclude_medley:
+            upper_lim = 16
+        else:
+            upper_lim = 18 if course == "L" else 19
         for i in range(1, upper_lim):
             event_tables[1].append(get_table_from_biog(ID, event=i, course=course))  
             event_tables[0].append(get_enum_member_name(Events, i))
@@ -238,7 +244,16 @@ def get_best_events_by_fina_points_for_set_year(ID="921675", course="L", year_to
         #TODO
         return None
 
-def get_top_events_by_fina_points_from_biog(ID="921675", course="L", total_events_to_scrape=3):
+def is_medley(event_row_text: str):
+    '''
+    Determine whether a row in the biog is representing a medley event or not
+    '''
+    if "Medley" in event_row_text.split(" "):
+        return True
+    else:
+        return False
+
+def get_top_events_by_fina_points_from_biog(ID="921675", course="L", total_events_to_scrape=3, exclude_medley: bool = False):
     '''
     Using an ID, scrapes the top three events from either the long course table, short course table, or both, according to their FINA point scores
     '''
@@ -253,11 +268,17 @@ def get_top_events_by_fina_points_from_biog(ID="921675", course="L", total_event
     else:
         rows = tables[0].find_all("tr")[1:] + tables[1].find_all("tr")[1:]
     
+    if(exclude_medley):
+        # filter the medley rows out from the rows --> 
+        rows = list(filter(lambda x: not is_medley(x.find_all("td")[0].text), rows))
+
     numerical_values = list(map(get_fina_points_from_biog_row, rows)) # Extract numerical values from each tr element
     sorted_tr_elements = sorted(rows, key=lambda tr: get_fina_points_from_biog_row(tr), reverse=True) # Sort tr elements based on numerical values in descending order
     top_three_tr_elements = sorted_tr_elements[:total_events_to_scrape] # Select the top three tr elements with the highest values by default
 
     return list(map(get_event_name_from_biog_row, top_three_tr_elements))
+
+#print(get_top_events_by_fina_points_from_biog("149309", exclude_medley=False))
 
 def extract_time_and_date_from_row(row, extract_year_only=True):
     '''
@@ -375,17 +396,34 @@ def get_results_page_from_british_summer_champs(year: int, page_no: int = 14):
             page_num -= 2
         return get_results_page_from_british_summer_champs(year, page_num)
 
+
+
 def get_200IM_performers_other_best_events_for_british_summers_by_event(query: str, event_code: int = 1):
     '''
     TODO: FINISH FUNCTIONALITY FOR THIS SO THAT WE CAN MAKE PIE CHARTS SHOWING PERCENTAGES
     Provided the meet code, page number and year as a query, we can scrape a meet (AKA British Summers) for information, such as:
     - finding finalists and medalists in an event, which can be used to
         - see what percentage of top-end IM performers have which strokes as their strongest
+
+    Rough outline of algorithm:
+    - set event to 200 IM
+    - sort by the round column such that the 'F' for final records are ordered first
+    - search by age group, i.e. finalists in age groups that are 16 or younger, such as 12/13, 13/14, 14/15, 15/16, etc. 
+            --> age groups change every few years, hence having a blanket standard of 16/U who are top of their respective age band for that year
+            --> age groups also vary by gender, but 17+ should cover mens and womens fairly well, i.e. women used to be 17+, then 18+, sometimes 19+
+                    whereas men were 17/18 and 19+, with now a 17, 18, 19+
+    - sort into a group of ASA numbers representing just finalists for those ages, and those who were also medalists --> maybe use dictionary
+    - once this has been done, the dictionary can be passed into other functions or processed further within this one, with the aim being to 
+        assign each swimmer their next best events, which can be rated using distance and stroke, i.e. on a pie chart, sprint events could be darker in colour than distance
+        while variation in stroke could be shown using different colours, i.e freestyle events could be shown using gradients of red as opposed to fly using gradients of yellow
+    - find best stroke excluding IM for that season using short and long course rankings and initially fina points as they are easy to scrape
+    - plot percentages on a pie chart for age and gender of the makeup for best stroke, i.e. 16/U mens might have 60% best stroke being breast, 30% being back, etc.
+        as opposed to girls 17+ maybe having high portions of free and fly
+    - maybe also plot best race distance as well, such as being more 50 based, 100 based, 200 based, 400 based, or 800/1500
     '''
     base_url = "https://www.swimmingresults.org/showmeetsbyevent/index.php" + query
     return
 
-print(get_results_page_from_british_summer_champs(2016,14))
 
 def test_run_fina_pts():
     '''
