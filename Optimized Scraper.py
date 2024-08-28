@@ -320,48 +320,120 @@ def year_when(year, age=12):
     except:
         return
 
+def meet_name_contains_words(words: list, meet_name: str):
+    '''
+    Checks if a meet name contains a set of words, such as Swim England or British Summer
+    '''
+    meet_name = meet_name.split(" ")
+    for name in words:
+        if not(name in meet_name):
+            return False
+    return True
 
-'''
-for i in range(10, 24):
-    print(get_best_events_by_fina_points_for_set_year(ID="149309", course="L", year_to_search=str(i)))
-'''
+def get_results_page_from_british_summer_champs(year: int, page_no: int = 14):
+    '''
+    Returns the page number and meet code as part of a query for the page for British Summer Championships in a given year; 
+    this can then be fed into a URL structure to get the results by gender, event or otherwise
+    ===> https://www.swimmingresults.org/showmeetsbyevent/index.php + query
+    where query could be equal to ==> ?targetyear=2015&masters=0&pgm=14&meetcode=19805
+    NOTE: THE MEET CODE IS NOT THE LICENCE NUMBER, IT IS THE HYPERLINK STORED IN THE LICENCE NUMBER
 
-start_time = datetime.now() #used to time how long the scraping takes - compare different algorithms to find faster solutions
+    - year ==> year to search
+    - page_no ==> when checking for meet results in a calendar year, all meets are organised into pages.
+        Need to be able to search a page and then check a different one if it doesn't contain the desired meet
+    '''
+    parent = f"https://www.swimmingresults.org/showmeetsbyevent/index.php?targetyear={year}&masters=0&page={page_no}"
+    page = session.get(parent) 
+    soup = BeautifulSoup(page.content, "html.parser")
+    tables = soup.find('tbody')
+    rows = tables.find_all("tr")[1:]
+    page_num = page_no
+    meets_found = filter(lambda x: 
+                                    x.find_all("td")[2].text == "National" 
+                                    and meet_name_contains_words(["British", "Summer"], x.find_all("td")[0].text), 
+                                    rows)
+    try:
+        meet = next(meets_found)
+        return meet.find_all("td")[5].find('a')['href']
+    except StopIteration:
+        '''
+        Look on a different page for the british summer champs of that year
+        - need to check if the date range is before or after July as British Summers is always in July
+        - date string is stored in index 3 of the td children
+        - if the latest month is June (06) or earlier, then check the next month (+1 ==> July)
+        - if the latest is July and we don't have the date, check the next page to see if it contains it (+1)
+        - if the latest month is post-July (08+) then definitely check previous page (-1)
+        - need to sort the rows by td index 3
+        '''
+        dates = sorted(list(map(int, map(lambda x: x.find_all("td")[3].text.split("/")[1], rows))), reverse=True)
+        if(dates[0] < 7):
+            page_num -= 1
+        elif(dates[0] > 7):
+            page_num += 1
+        else:
+            # page is in July so we need to check the page before and after - if we go two pages ahead, we can then cycle back
+            page_num -= 2
+        return get_results_page_from_british_summer_champs(year, page_num)
 
-event = '4' # 400 FREE, see Events class for full list of pairs of events and their corresponding codes on rankings
-gender= 'F' # M = male, F = female
+def get_200IM_performers_other_best_events_for_british_summers_by_event(query: str, event_code: int = 1):
+    '''
+    TODO: FINISH FUNCTIONALITY FOR THIS SO THAT WE CAN MAKE PIE CHARTS SHOWING PERCENTAGES
+    Provided the meet code, page number and year as a query, we can scrape a meet (AKA British Summers) for information, such as:
+    - finding finalists and medalists in an event, which can be used to
+        - see what percentage of top-end IM performers have which strokes as their strongest
+    '''
+    base_url = "https://www.swimmingresults.org/showmeetsbyevent/index.php" + query
+    return
 
-filenamingDictionary = {
-    "M" : 'Mens',
-    "F" : 'Womens'
-}   # Used to build the file name
+print(get_results_page_from_british_summer_champs(2016,14))
 
-#database = np.array([["ID", 12, 13, 14, 15, 16, 17, 18, 19, 20]])      # use this for including the ID in the table
-database = np.array([[12, 13, 14, 15, 16, 17, 18, 19, 20]])     # this line won't include ASA Rankings membership ID number in the table
+def test_run_fina_pts():
+    '''
+    You can run these basic test functions to check out functionality ad hoc
+    '''
+    for i in range(10, 24):
+        print(get_best_events_by_fina_points_for_set_year(ID="149309", course="L", year_to_search=str(i)))
 
-IDs = dict()
+def test_run_scrape_for_csv():
+    '''
+    You can run these basic test functions to check out functionality ad hoc
+    '''
+    start_time = datetime.now() #used to time how long the scraping takes - compare different algorithms to find faster solutions
 
-for i in range(2008, 2023):
-    for j in map(extract_attributes_from_row, get_rows(query=set_parameters(stroke=event, year=str(i), records_to_view=10, sex=gender))):
-        IDs.update({ j[0] : j[1] })
+    event = '4' # 400 FREE, see Events class for full list of pairs of events and their corresponding codes on rankings
+    gender= 'F' # M = male, F = female
 
-for ID in IDs.keys():
-    record = []
-    for i in range(12, 21):
-        record.append(get_seasonal_best_from_rows(get_table_from_biog(ID, event), year_when(IDs[ID], i)))
-    database = np.vstack((database, np.array(record)))
+    filenamingDictionary = {
+        "M" : 'Mens',
+        "F" : 'Womens'
+    }   # Used to build the file name
+
+    #database = np.array([["ID", 12, 13, 14, 15, 16, 17, 18, 19, 20]])      # use this for including the ID in the table
+    database = np.array([[12, 13, 14, 15, 16, 17, 18, 19, 20]])     # this line won't include ASA Rankings membership ID number in the table
+
+    IDs = dict()
+
+    for i in range(2008, 2023):
+        for j in map(extract_attributes_from_row, get_rows(query=set_parameters(stroke=event, year=str(i), records_to_view=10, sex=gender))):
+            IDs.update({ j[0] : j[1] })
+
+    for ID in IDs.keys():
+        record = []
+        for i in range(12, 21):
+            record.append(get_seasonal_best_from_rows(get_table_from_biog(ID, event), year_when(IDs[ID], i)))
+        database = np.vstack((database, np.array(record)))
 
 
-#database = np.delete(database, 0, axis=1).astype(np.float)  #deletes the column of IDs - only relevant if IDs were added and later on, were not wanted
+    #database = np.delete(database, 0, axis=1).astype(np.float)  #deletes the column of IDs - only relevant if IDs were added and later on, were not wanted
 
 
-end_time = datetime.now()
-execution_time = end_time - start_time  #used to time the code
+    end_time = datetime.now()
+    execution_time = end_time - start_time  #used to time the code
 
-print(f"The code took {execution_time.total_seconds()}")
+    print(f"The code took {execution_time.total_seconds()}")
 
 
-file_path = f'CSV/Top 10 Performers {filenamingDictionary[gender]} {get_enum_member_name(Events, int(event))} 2008-2023.csv'
+    file_path = f'CSV/Top 10 Performers {filenamingDictionary[gender]} {get_enum_member_name(Events, int(event))} 2008-2023.csv'
 
-# Write the numpy array to a CSV file
-np.savetxt(file_path, database, delimiter=',', fmt='%.2f')
+    # Write the numpy array to a CSV file
+    np.savetxt(file_path, database, delimiter=',', fmt='%.2f')
