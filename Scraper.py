@@ -77,6 +77,22 @@ def get_enum_member_name(enum_cls, value):
             return member.name
     return None
 
+def convert_biog_event_text_to_enum_format(event_on_biog:str):
+    '''
+    Converts an event name from biog to the format for the enum
+    '''
+    comps = event_on_biog.upper().split(" ")
+    if comps[1] == "INDIVIDUAL":
+        word = "IM"
+    elif comps[1] == "BACKSTROKE":
+        word = "BACK"
+    elif comps[1] == "BUTTERFLY":
+        word = "FLY"
+    elif comps[1] == "BREASTSTROKE":
+        word = "BREAST"
+    else:
+        word = "FREE"
+    return word + "_" + comps[0]
 
 session = requests.Session() # Create a session object
 

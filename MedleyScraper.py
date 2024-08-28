@@ -7,6 +7,8 @@ from enum import Enum
 import numpy as np 
 import threading
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 
 session = requests.Session() # Create a session object
 # Configure connection pool size
@@ -39,7 +41,7 @@ class MedleyScrapeThread(threading.Thread):
     def run(self):
         #print("Started running...")
         for i in range(self.start_year, self.start_year + self.pages_to_scrape):
-            page = set_parameters(stroke=str(self.stroke), records_to_view=str(self.records_to_view), year=str(i))
+            page = set_parameters(stroke=str(self.stroke), sex='F', records_to_view=str(self.records_to_view), year=str(i))
             for ID in get_IDs(get_rows(page)):
                 go = True
                 if not self.reuse_IDs:
@@ -102,7 +104,7 @@ def instantiate_threads(start_year: int, total_pages: int, stroke: int, records_
 
 threads = instantiate_threads(2000, 25, 16, 10, 5)
 for thread in threads:
-    print(f"{thread.start_year}: {thread.pages_to_scrape}")
+    print(f"Start year: {thread.start_year}; pages to scrape: {thread.pages_to_scrape}")
 
 for thread in threads:
     thread.start()
@@ -120,5 +122,123 @@ data = {}
 for i in range(0, len(dics)):
     data = combine_dicts(data, dics[i])
 
-print(data)
 print(IDs_checked)
+
+total_swims_in_database = sum(data.values())
+print(f"Total swimmers: {total_swims_in_database/3}; Total swims per database taking top three non-medley events per swimmer: {total_swims_in_database}")
+
+for value in data.values():
+    value /= total_swims_in_database
+
+data = dict(sorted(data.items(), key=lambda item: Events[convert_biog_event_text_to_enum_format(item[0])].value))
+print(data)
+
+colors = [] 
+'''
+https://matplotlib.org/stable/users/explain/colors/colormaps.html
+
+Define colors: 
+= Backstroke events (red shades), 
+= Freestyle events (yellow shades), 
+= Butterfly events (green shades), 
+= Breaststroke events (blue shades)
+'''
+# Define the color maps for each swimming style
+color_maps = {
+    "Freestyle": cm.spring,      # Spring for Freestyle
+    "Breaststroke": cm.autumn,   # Autumn for Breaststroke
+    "Butterfly": cm.winter,      # Winter for Butterfly
+    "Backstroke": cm.cool,       # Cool for Backstroke (can modify as needed)
+}
+
+
+# Function to adjust lightness of a color
+def adjust_lightness(color, amount=1.0):
+    # Convert RGB to HSV
+    rgb = mcolors.to_rgb(color)
+    h, s, v = mcolors.rgb_to_hsv(rgb)
+    # Adjust value (lightness)
+    v = max(0, min(1, v * amount))  # Ensure value stays between 0 and 1
+    # Convert back to RGB
+    return mcolors.hsv_to_rgb((h, s, v))
+
+mylabels = list(data.keys())
+
+# Base lightness factor
+base_lightness = 1.0
+lightness_step = 0.1  # Change this value to adjust the lightness increment
+
+lightness_factors = [1,1,1,1]
+
+# Assign colors based on the event type and reset lightness for each stroke
+for label in mylabels:
+    # Define a base lightness factor for the current stroke
+    if "Freestyle" in label:
+        base_color = color_maps["Freestyle"](0.5)  # Midpoint of spring colormap
+        lightness_factors[0] -= 0.1  # Lightness for Freestyle
+        lightness_factor = lightness_factors[0]
+    elif "Breaststroke" in label:
+        base_color = color_maps["Breaststroke"](0.5)  # Midpoint of autumn colormap
+        lightness_factors[1] -= 0.1  # Lightness for Breaststroke
+        lightness_factor = lightness_factors[1]
+    elif "Butterfly" in label:
+        base_color = color_maps["Butterfly"](0.5)  # Midpoint of winter colormap
+        lightness_factors[2] -= 0.1  # Lightness for Butterfly
+        lightness_factor = lightness_factors[2]
+    else:
+        base_color = color_maps["Backstroke"](0.5)  # Midpoint of cool colormap
+        lightness_factors[3] -= 0.1 # Lightness for Backstroke
+        lightness_factor = lightness_factors[3]
+
+    # Adjust lightness for the base color
+    adjusted_color = adjust_lightness(base_color, lightness_factor)
+    colors.append(adjusted_color)
+
+
+'''
+# Assign shades based on the event type
+for index, label in enumerate(mylabels):
+    if "Freestyle" in label:
+        base_color = "red"  # Base color for freestyle
+        lightness_factor = 2#1 - (index * 0.2 / len(data))  # Decrease lightness
+        colors.append(adjust_lightness(base_color, lightness_factor))
+    elif "Breaststroke" in label:
+        base_color = "blue"  # Base color for breaststroke
+        lightness_factor = 2#1 - (index * 0.2 / len(data))  # Decrease lightness
+        colors.append(adjust_lightness(base_color, lightness_factor))
+    elif "Butterfly" in label:
+        base_color = "green"  # Base color for butterfly
+        lightness_factor = 2#1 - (index * 0.2 / len(data))  # Decrease lightness
+        colors.append(adjust_lightness(base_color, lightness_factor))
+    else:
+        base_color = "orange"  # Base color for backstroke
+        lightness_factor = 2#1 - (index * 0.2 / len(data))  # Decrease lightness
+        colors.append(adjust_lightness(base_color, lightness_factor))
+'''
+
+'''
+# Assign shades based on the event type
+for label in mylabels:
+    if "Freestyle" in label:
+        colors.append(cm.Wistia(0.5 + 0.5 * (mylabels.index(label) % 2)))  # Gradation for freestyle
+    elif "Breaststroke" in label:
+        colors.append(cm.Blues(0.5 + 0.5 * (mylabels.index(label) % 2)))  # Gradation for breaststroke
+    elif "Butterfly" in label:
+        colors.append(cm.Greens(0.5 + 0.5 * (mylabels.index(label) % 2)))  # Gradation for butterfly
+    else:
+        colors.append(cm.Reds(0.5 + 0.5 * (mylabels.index(label) % 2)))  # Gradation for backstroke
+'''
+
+# Create pie chart
+plt.pie(data.values(), labels=mylabels, colors=colors, autopct='%1.1f%%')
+
+# Equal aspect ratio ensures that pie is drawn as a circle.
+plt.axis('equal')  
+plt.title("Open Womens LC 200m IM Top 10 2000-2025 - each unique swimmer's top three non-medley events by FINA points")
+plt.legend(title = "Events:")
+plt.text(0, -1.25, 
+        "The plot shows data taken from the British Swimming Event Rankings of the top three non-IM events for the best (top 10) 200 IM swimmers each year from 2000-2024.\n"
+        f"Each slice represents how frequently each event came up in the total count, where we had: {int(total_swims_in_database/3)} unique swimmers, so with 3 top events picked per swimmer, there are:{total_swims_in_database} swims."
+            ,
+         fontsize=10, ha='center', va='center', bbox=dict(facecolor='white', alpha=0.5))
+plt.show()
