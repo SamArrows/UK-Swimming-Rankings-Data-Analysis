@@ -82,17 +82,40 @@ def convert_biog_event_text_to_enum_format(event_on_biog:str):
     Converts an event name from biog to the format for the enum
     '''
     comps = event_on_biog.upper().split(" ")
-    if comps[1] == "INDIVIDUAL":
-        word = "IM"
-    elif comps[1] == "BACKSTROKE":
-        word = "BACK"
-    elif comps[1] == "BUTTERFLY":
-        word = "FLY"
-    elif comps[1] == "BREASTSTROKE":
-        word = "BREAST"
+    try:
+        if comps[1] == "INDIVIDUAL":
+            word = "IM"
+        elif comps[1] == "BACKSTROKE":
+            word = "BACK"
+        elif comps[1] == "BUTTERFLY":
+            word = "FLY"
+        elif comps[1] == "BREASTSTROKE":
+            word = "BREAST"
+        else:
+            word = "FREE"
+        return word + "_" + comps[0]
+    except IndexError as e:
+        print(e.message)
+        return
+
+def convert_enum_format_to_biog_format(event_as_enum: str):
+    '''
+    Converts an event name as written in the Enum definition above to the format seen in the biogs, i.e.
+    FREE_200 ==> 200 Freestyle
+    MEDLEY_100 ==> 100 Individual Medley
+    '''
+    components = event_as_enum.upper().split("_")
+    if components[0] == "FREE":
+        components[0] = "Freestyle"
+    elif components[0] == "BACK":
+        components[0] = "Backstroke"
+    elif components[0] == "BREAST":
+        components[0] = "Breaststroke"
+    elif components[0] == "MEDLEY":
+        components[0] = "Individual Medley"
     else:
-        word = "FREE"
-    return word + "_" + comps[0]
+        components[0] = "Butterfly"
+    return f"{components[1]} {components[0]}"
 
 session = requests.Session() # Create a session object
 
@@ -133,6 +156,23 @@ def convert_timestring_to_secs(time):
         total_seconds = int(minutes) * 60 + int(seconds) + int(hundredths) / 100
         time = float(total_seconds)
     return time
+
+def convert_secs_to_timestring(time):
+    '''
+    Converts a time in seconds to its equivalent form on rankings, i.e. 120.88 = 2:00.88
+    '''
+    minutes = int(time // 60)
+    seconds = round(time % 60, 2)
+    final_string = ""
+    if minutes != 0:
+        final_string += str(minutes) + ":"
+    if seconds < 10:
+        seconds = "0" + str(seconds)
+    seconds = str(seconds)
+    if(len(seconds) < 5):
+        seconds += "0"
+    final_string += str(seconds)
+    return final_string
 
 def extract_yob_from_row(row):
     '''
@@ -257,7 +297,7 @@ def get_best_events_by_fina_points_for_set_year(ID="921675", course="L", year_to
         
         return list(sorted(zip(event_tables[0], scores), key=lambda x: x[1], reverse=True)[:total_events_to_scrape]) # Select the top three scores by default
     else:
-        #TODO
+        #TODO - be able to pick top three events out of short and long course combined
         return None
 
 def is_medley(event_row_text: str):
@@ -295,6 +335,15 @@ def get_top_events_by_fina_points_from_biog(ID="921675", course="L", total_event
     return list(map(get_event_name_from_biog_row, top_three_tr_elements))
 
 #print(get_top_events_by_fina_points_from_biog("149309", exclude_medley=False))
+
+def extract_time_from_rankings_query_row(rankings_row):
+    '''
+    After searching a query on rankings, such as top 24 performers in mens 100 free open for a given year, this function will extract the time from the row.
+    We can use map to apply the function to a collection of rows obtained through get_rows.
+    Note that it returns the time as a string such that you can then parse it as either its regular form or if necessary, you can convert it to seconds.
+    '''
+    return rankings_row.find_all("td")[-1].string.strip()
+
 
 def extract_time_and_date_from_row(row, extract_year_only=True):
     '''
