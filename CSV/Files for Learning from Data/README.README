@@ -1,1 +1,2 @@
-For the DBSCAN, I combined the mens and womens points into one numpy array as the variance was fairly similar, implying similar tactics used
+- For the DBSCAN, I combined the mens and womens points into one numpy array as the variance was fairly similar, implying similar tactics used.
+- I used MinMax scaling, the data for the DBSCANS is currently unscaled - these were plotted after being assigned clusters based on the scaled data
