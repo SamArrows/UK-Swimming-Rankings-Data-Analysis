@@ -1,0 +1,1 @@
+For the DBSCAN, I combined the mens and womens points into one numpy array as the variance was fairly similar, implying similar tactics used
