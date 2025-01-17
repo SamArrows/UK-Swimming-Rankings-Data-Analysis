@@ -1,3 +1,6 @@
+Initially started off as a project in my own time which I then developed for my 'Learning From Data' module at university. Relevant plots and the reports for the coursework are identified. Code used to generate plots was from multiple files.
+The assignment was graded 87%
+============================================================================
 Initial work on the project. Some key things to note:
 - last year and earlier, the event rankings website used a Captcha "i'm not a robot" system for accessing biogs so my initial build scraped each year that a swimmer was active to find their times from the ALL-TIME rankings, which is slow and laborious.
 -    As the Captcha system is no longer in use, I developed a more robust, less buggy version, hence its title of Optimized Scraper (this has been updated to just Scraper due to file discovery)
