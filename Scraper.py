@@ -118,9 +118,7 @@ def convert_enum_format_to_biog_format(event_as_enum: str):
     return f"{components[1]} {components[0]}"
 
 session = requests.Session() # Create a session object
-
-# Configure connection pool size
-adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10)
+adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10) # Configure connection pool size
 session.mount('http://', adapter)
 session.mount('https://', adapter)
 
@@ -236,6 +234,7 @@ def get_rows(query=set_parameters()):
     table = results.find("tbody")
     rows = table.find_all("tr")[1:] #exclude the first row since it is the headers of the table
     return rows
+
 
 def get_IDs(rows):
     '''
